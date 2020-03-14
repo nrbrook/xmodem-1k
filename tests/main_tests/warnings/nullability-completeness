@@ -1,0 +1,5 @@
+#if defined(__clang__)
+#  if __has_warning("-Wnullability-completeness")
+#   pragma clang diagnostic ignored "-Wnullability-completeness"
+#  endif
+#endif

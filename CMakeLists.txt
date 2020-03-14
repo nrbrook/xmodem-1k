@@ -1,20 +1,11 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.12)
 
-project(XmodemProject VERSION "1.0.0" LANGUAGES C)
+project(XmodemProject)
 
-set_source_files_properties(
-        xmodem.h
-        crc16.h
-        PROPERTIES
-        HEADER_FILE_ONLY TRUE # Don't need compiling
-)
+set(CMAKE_C_STANDARD 99)
 
-add_library(xmodem STATIC
-        xmodem.c
-        crc16.c
-        )
+add_subdirectory(src)
 
-target_include_directories(xmodem
-        PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        )
+if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
+    add_subdirectory(tests)
+endif()

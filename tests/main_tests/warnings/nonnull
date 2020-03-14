@@ -1,0 +1,5 @@
+#if defined(__clang__)
+#  if __has_warning("-Wnonnull")
+#   pragma clang diagnostic ignored "-Wnonnull"
+#  endif
+#endif

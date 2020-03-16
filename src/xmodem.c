@@ -101,7 +101,7 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
 {
 	unsigned char xbuff[1030]; /* 1024 for XModem 1k + 3 head chars + 2 crc + nul */
 	unsigned char *p;
-	int bufsz, crc = 0;
+	int bufsz = XMODEM_BUFF_SIZE_NORMAL, crc = 0;
 	unsigned char trychar = 'C';
 	unsigned char packetno = 1;
 	int i, c, len = 0;

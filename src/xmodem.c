@@ -68,7 +68,7 @@ int (*xmodemInByte)(unsigned short timeout);
  * Send a byte
  * @param c The byte to send
  */
-void (*xmodemOutByte)(char c);
+void (*xmodemOutByte)(unsigned char c);
 
 static int check(int crc, const unsigned char *buf, int sz)
 {

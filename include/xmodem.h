@@ -50,7 +50,7 @@ extern int (*xmodemInByte)(unsigned short timeout);
  * Send a byte
  * @param c The byte to send
  */
-extern void (*xmodemOutByte)(char c);
+extern void (*xmodemOutByte)(unsigned char c);
 
 #ifdef __cplusplus
 }

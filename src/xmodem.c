@@ -248,7 +248,7 @@ int xmodemTransmit(unsigned char const *src, int srcsz)
 					for (i = 0; i < bufsz+4+(crc?1:0); ++i) {
                         xmodemOutByte(xbuff[i]);
 					}
-					if ((c = xmodemInByte(DLY_1S)) >= 0 ) {
+					if ((c = xmodemInByte(DLY_1S << 1)) >= 0 ) {
 						switch (c) {
 						case ACK:
 							++packetno;

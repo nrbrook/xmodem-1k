@@ -126,7 +126,7 @@ int xmodemReceive(unsigned char *dest, int destsz)
 					if ((c = xmodemInByte(DLY_1S)) == CAN) {
 						flushinput();
                         xmodemOutByte(ACK);
-						return -1; /* canceled by remote */
+						return xmodemErrorCancelledByRemote;
 					}
 					break;
 				default:
@@ -139,7 +139,7 @@ int xmodemReceive(unsigned char *dest, int destsz)
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
-		return -2; /* sync error */
+		return xmodemErrorNoSync;
 
 	start_recv:
 		if (trychar == 'C') crc = 1;
@@ -169,7 +169,7 @@ int xmodemReceive(unsigned char *dest, int destsz)
                 xmodemOutByte(CAN);
                 xmodemOutByte(CAN);
                 xmodemOutByte(CAN);
-				return -3; /* too many retry error */
+				return xmodemErrorTooManyRetries;
 			}
             xmodemOutByte(ACK);
 			continue;
@@ -202,7 +202,7 @@ int xmodemTransmit(unsigned char const *src, int srcsz)
 					if ((c = xmodemInByte(DLY_1S)) == CAN) {
                         xmodemOutByte(ACK);
 						flushinput();
-						return -1; /* canceled by remote */
+						return xmodemErrorCancelledByRemote;
 					}
 					break;
 				default:
@@ -214,7 +214,7 @@ int xmodemTransmit(unsigned char const *src, int srcsz)
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
 		flushinput();
-		return -2; /* no sync */
+		return xmodemErrorNoSync;
 
 		for(;;) {
 		start_trans:
@@ -258,7 +258,7 @@ int xmodemTransmit(unsigned char const *src, int srcsz)
 							if ((c = xmodemInByte(DLY_1S)) == CAN) {
                                 xmodemOutByte(ACK);
 								flushinput();
-								return -1; /* canceled by remote */
+								return xmodemErrorCancelledByRemote;
 							}
 							break;
 						case NAK:
@@ -271,7 +271,7 @@ int xmodemTransmit(unsigned char const *src, int srcsz)
                 xmodemOutByte(CAN);
                 xmodemOutByte(CAN);
 				flushinput();
-				return -4; /* xmit error */
+				return xmodemErrorTransmitError;
 			}
 			else {
 				for (retry = 0; retry < 10; ++retry) {

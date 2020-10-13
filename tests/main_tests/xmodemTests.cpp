@@ -73,9 +73,6 @@ static int receiveResult = 0;
 __attribute__((constructor)) void init(void) {
     xmodemInByte = xmodem_InByte;
     xmodemOutByte = xmodem_OutByte;
-    for(int i = 0; i < sizeof(dataToTransfer); i++) {
-        dataToTransfer[i] = (uint8_t)i;
-    }
 }
 
 static unsigned char const * getBuffer(int * size) {
@@ -112,6 +109,9 @@ class xmodemTests : public ::testing::Test {
         tx_wireBufferEnd = 0;
         rx_wireBufferStart = 0;
         rx_wireBufferEnd = 0;
+        for(int i = 0; i < sizeof(dataToTransfer); i++) {
+            dataToTransfer[i] = (uint8_t)i;
+        }
     }
 
     void TearDown() override {
@@ -207,4 +207,25 @@ TEST_F(xmodemTests, testSendReceiveFailBufferFull) {
 
     ASSERT_EQ(sendResult, xmodemErrorCancelledByRemote);
     ASSERT_EQ(receiveResult, xmodemErrorBufferFull);
+}
+
+TEST_F(xmodemTests, testSendReceiveSuccessXmodemFullBufferEnd0) {
+    sendDataSize = 128;
+    dataToTransfer[125] = 0;
+    dataToTransfer[126] = 0;
+    dataToTransfer[127] = 0;
+    sendBufferSize = sizeof(dataToTransfer);
+    receiveBufferSize = sizeof(receiveBuffer);
+    receiveTotalSize = sizeof(receiveBuffer);
+    ::pthread_create(&sendThread, nullptr, sendFunc, nullptr);
+    ::pthread_create(&receiveThread, nullptr, receiveFunc, nullptr);
+    ::pthread_join(sendThread, nullptr);
+    ::pthread_join(receiveThread, nullptr);
+
+    ASSERT_EQ(sendResult, sendDataSize);
+    ASSERT_EQ(receiveResult, sendDataSize);
+    if(receiveResult > receiveOffset) {
+        memcpy(receiveOutput + receiveOffset, receiveBuffer, receiveResult - receiveOffset);
+    }
+    ASSERT_EQ(memcmp(receiveOutput, dataToTransfer, sendDataSize), 0);
 }

@@ -142,12 +142,29 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
 					flushinput();
                     xmodemOutByte(ACK);
                     // determine exact length by finding ctrlz character
+                    char foundctrlz = 0;
                     for(i = bufsz-1; i >= 0; i--) {
-                        if(xbuff[3+i] == CTRLZ || xbuff[3+i] != 0) {
-                            break;
+                        switch(xbuff[3+i]) {
+                            case 0:
+                                if(foundctrlz) {
+                                    break;
+                                }
+                                continue;
+                            case CTRLZ:
+                                foundctrlz = 1;
+                                continue;
+                            default:
+                                if(!foundctrlz) {
+                                    // ctrlz not found, so assume whole buffer is data
+                                    i = bufsz-1;
+                                }
+                                break;
                         }
+                        break;
                     }
-					return i + (packetno - 2) * bufsz; /* normal end */
+                    int totallen = i + 1 + (packetno - 2) * bufsz;
+                    RXLOG("Found %d ctrlz/0, last packet length %d, total length %d", bufsz - i - 1, i + 1, totallen);
+					return totallen; /* normal end */
 				case CAN:
                     RXLOG("CAN");
 					if ((c = xmodemInByte(DLY_1S)) == CAN) {
@@ -314,9 +331,7 @@ int xmodemTransmit(unsigned char const * (*getBufferCallback)(int *size))
 			if(buffRemaining != bufsz) {
 			    totalLen += bufsz - buffRemaining;
                 if(buffRemaining > 0) {
-                    xbuff[3 + (bufsz - buffRemaining)] = CTRLZ;
-                    buffRemaining--;
-                    memset(xbuff + 3 + (bufsz - buffRemaining), 0, buffRemaining);
+                    memset(xbuff + 3 + (bufsz - buffRemaining), CTRLZ, buffRemaining);
                 }
 				if (crc) {
 					unsigned short ccrc = crc16_ccitt(&xbuff[3], bufsz);

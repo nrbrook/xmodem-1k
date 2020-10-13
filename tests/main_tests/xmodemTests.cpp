@@ -46,7 +46,7 @@ int xmodem_InByte(unsigned short timeout) {
     PRINT_WIRE("%s op failed to receive byte after delay %dms\n", isSend ? "T" : "R", timeout);
     return -10;
 }
-void xmodem_OutByte(char c) {
+void xmodem_OutByte(unsigned char c) {
     bool isSend = pthread_self() == sendThread;
     uint8_t *wireBuffer = isSend ? tx_wireBuffer : rx_wireBuffer;
     size_t *wireBufferEnd = isSend ? &tx_wireBufferEnd : &rx_wireBufferEnd;

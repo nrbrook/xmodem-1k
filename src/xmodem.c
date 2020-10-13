@@ -35,8 +35,8 @@
  */
 
 #include <memory.h>
-#include "crc16.h"
-#include "xmodem.h"
+#include "../include/crc16.h"
+#include "../include/xmodem.h"
 
 #define SOH  0x01
 #define STX  0x02
@@ -57,6 +57,20 @@
 #define XMODEM_TRANSMIT_BUFFER_SIZE XMODEM_BUFF_SIZE_NORMAL
 #endif
 
+#define LOG_ENABLED 0
+
+#ifdef LOG_ENABLED
+#include <stdio.h>
+#define LOG(...) do { fprintf(stdout, ##__VA_ARGS__); } while (0)
+
+#define RXLOG(msg, ...) LOG("Rx " msg "\n", ##__VA_ARGS__)
+#define TXLOG(msg, ...) LOG("Tx " msg "\n", ##__VA_ARGS__)
+#else
+#define LOG(...)
+#define RXLOG(...)
+#define TXLOG(...)
+#endif
+
 /**
  * Get a received byte
  * @param timeout The timeout, in ms
@@ -68,7 +82,7 @@ int (*xmodemInByte)(unsigned short timeout);
  * Send a byte
  * @param c The byte to send
  */
-void (*xmodemOutByte)(char c);
+void (*xmodemOutByte)(unsigned char c);
 
 static int check(int crc, const unsigned char *buf, int sz)
 {
@@ -109,16 +123,22 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
 
 	for(;;) {
 		for( retry = 0; retry < 16; ++retry) {
-			if (trychar) xmodemOutByte(trychar);
+            if (trychar) {
+                RXLOG("try 0x%02X", trychar);
+                xmodemOutByte(trychar);
+            }
 			if ((c = xmodemInByte((DLY_1S) << 1)) >= 0) {
 				switch (c) {
 				case SOH:
+                    RXLOG("SOH");
 					bufsz = XMODEM_BUFF_SIZE_NORMAL;
 					goto start_recv;
 				case STX:
+                    RXLOG("STX");
 					bufsz = XMODEM_BUFF_SIZE_1K;
 					goto start_recv;
 				case EOT:
+                    RXLOG("EOT");
 					flushinput();
                     xmodemOutByte(ACK);
                     // determine exact length by finding ctrlz character
@@ -129,23 +149,26 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
                     }
 					return i + (packetno - 2) * bufsz; /* normal end */
 				case CAN:
+                    RXLOG("CAN");
 					if ((c = xmodemInByte(DLY_1S)) == CAN) {
 						flushinput();
                         xmodemOutByte(ACK);
-						return xmodemErrorCancelledByRemote; /* canceled by remote */
+						return xmodemErrorCancelledByRemote;
 					}
 					break;
 				default:
 					break;
 				}
 			}
+            RXLOG("Retry %d", retry + 1);
 		}
 		if (trychar == 'C') { trychar = NAK; continue; }
+        RXLOG("No sync");
 		flushinput();
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
-		return xmodemErrorNoSync; /* sync error */
+		return xmodemErrorNoSync;
 
     bufferFull:
         xmodemOutByte(CAN);
@@ -155,7 +178,7 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
-        return xmodemErrorBufferFull; /* buffer full */
+        return xmodemErrorBufferFull;
 
 	start_recv:
 		if (trychar == 'C') crc = 1;
@@ -192,20 +215,24 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
 			    if(remainingBuffer > 0) {
                     goto bufferFull;
 			    }
+                RXLOG("Packet %d success, %d", packetno, len);
 				++packetno;
 				retrans = XMODEM_MAXRETRANS + 1;
 			}
 			if (--retrans <= 0) {
+                RXLOG("Too many retries");
 				flushinput();
                 xmodemOutByte(CAN);
                 xmodemOutByte(CAN);
                 xmodemOutByte(CAN);
-				return xmodemErrorTooManyRetries; /* too many retry error */
+				return xmodemErrorTooManyRetries;
 			}
+            RXLOG("ACK");
             xmodemOutByte(ACK);
 			continue;
 		}
 	reject:
+        RXLOG("NAK");
 		flushinput();
         xmodemOutByte(NAK);
 	}
@@ -226,16 +253,19 @@ int xmodemTransmit(unsigned char const * (*getBufferCallback)(int *size))
 			if ((c = xmodemInByte((DLY_1S) << 1)) >= 0) {
 				switch (c) {
 				case 'C':
+                    TXLOG("Received C");
 					crc = 1;
 					goto start_trans;
 				case NAK:
+                    TXLOG("Received NAK");
 					crc = 0;
 					goto start_trans;
 				case CAN:
+                    TXLOG("Received CAN");
 					if ((c = xmodemInByte(DLY_1S)) == CAN) {
                         xmodemOutByte(ACK);
 						flushinput();
-						return xmodemErrorCancelledByRemote; /* canceled by remote */
+						return xmodemErrorCancelledByRemote;
 					}
 					break;
 				default:
@@ -243,14 +273,16 @@ int xmodemTransmit(unsigned char const * (*getBufferCallback)(int *size))
 				}
 			}
 		}
+        TXLOG("No sync");
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
 		flushinput();
-		return xmodemErrorNoSync; /* no sync */
+		return xmodemErrorNoSync;
 
 		for(;;) {
 		start_trans:
+            TXLOG("Transmit %d", packetno);
 #ifdef XMODEM_TRANSMIT_1K
 			xbuff[0] = STX;
 #else
@@ -302,37 +334,49 @@ int xmodemTransmit(unsigned char const * (*getBufferCallback)(int *size))
 					for (i = 0; i < bufsz+4+(crc?1:0); ++i) {
                         xmodemOutByte(xbuff[i]);
 					}
-					if ((c = xmodemInByte(DLY_1S)) >= 0 ) {
+					if ((c = xmodemInByte(DLY_1S << 1)) >= 0 ) {
 						switch (c) {
 						case ACK:
+                            TXLOG("Received ACK");
 							++packetno;
 							goto start_trans;
 						case CAN:
+                            TXLOG("Received CAN");
 							if ((c = xmodemInByte(DLY_1S)) == CAN) {
+                                TXLOG("CAN ACK");
                                 xmodemOutByte(ACK);
 								flushinput();
-								return xmodemErrorCancelledByRemote; /* canceled by remote */
+								return xmodemErrorCancelledByRemote;
 							}
 							break;
 						case NAK:
+                            TXLOG("Received NAK");
 						default:
 							break;
 						}
 					}
 				}
+                TXLOG("Error");
                 xmodemOutByte(CAN);
                 xmodemOutByte(CAN);
                 xmodemOutByte(CAN);
 				flushinput();
-				return xmodemErrorTransmitError; /* xmit error */
+				return xmodemErrorTransmitError;
 			}
 			else {
 				for (retry = 0; retry < 10; ++retry) {
+                    TXLOG("EOT");
                     xmodemOutByte(EOT);
 					if ((c = xmodemInByte((DLY_1S) << 1)) == ACK) break;
 				}
 				flushinput();
-				return (c == ACK) ? totalLen : xmodemErrorUnexpectedResponse;
+                if(c == ACK) {
+                    TXLOG("Complete");
+                    return totalLen;
+                } else {
+                    TXLOG("Failed");
+                    return xmodemErrorUnexpectedResponse;
+                }
 			}
 		}
 	}

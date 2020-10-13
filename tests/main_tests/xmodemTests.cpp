@@ -302,8 +302,8 @@ TEST_F(xmodemTests, testSendReceiveSuccessFullBufferFullDataCorruption) {
 }
 
 TEST_F(xmodemTests, testSendReceiveSuccessFullBufferFullDataLossAndCorruption) {
-    lossRate = 1.0 / (4.0 * 128.0);
-    corruptionRate = 1.0 / (4.0 * 128.0);
+    lossRate = 1.0 / (6.0 * 128.0);
+    corruptionRate = 1.0 / (6.0 * 128.0);
     sendDataSize = sizeof(dataToTransfer);
     sendBufferSize = sizeof(dataToTransfer);
     receiveBufferSize = sizeof(receiveBuffer);

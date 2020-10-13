@@ -167,6 +167,9 @@ int xmodemReceive(unsigned char * (*getBufferCallback)(int *size))
                         break;
                     }
                     int totallen = i + 1 + (packetno - 2) * bufsz;
+                    if(totallen == 0) {
+                        return xmodemErrorUnexpectedResponse;
+                    }
                     RXLOG("Found %d ctrlz/0, last packet length %d, total length %d", bufsz - i - 1, i + 1, totallen);
 					return totallen; /* normal end */
 				case CAN:
@@ -207,6 +210,7 @@ int xmodemReceive(unsigned char * (*getBufferCallback)(int *size))
 		trychar = 0;
 		p = xbuff;
 		*p++ = c;
+        RXLOG("Receiving packet %d", packetno);
 		for (i = 0;  i < (bufsz+(crc?1:0)+3); ++i) {
 			if ((c = xmodemInByte(DLY_1S)) < 0) goto reject;
 			*p++ = c;
@@ -218,10 +222,13 @@ int xmodemReceive(unsigned char * (*getBufferCallback)(int *size))
 			if (xbuff[1] == packetno)	{
 			    int remainingBuffer = bufsz;
 			    do {
-			        if(remainingBuffer != bufsz) {
-			            // just called buffer full, reset len
-			            len = 0;
-			        }
+                    if(len >= destsz) {
+                        dest = getBufferCallback(&destsz);
+                        len = 0;
+                        if(dest == NULL || destsz == 0) {
+                            goto bufferFull;
+                        }
+                    }
 			        int lenToCopy = remainingBuffer;
 			        if(lenToCopy > (destsz - len)) lenToCopy = destsz - len;
 			        if(lenToCopy > 0) {
@@ -229,10 +236,7 @@ int xmodemReceive(unsigned char * (*getBufferCallback)(int *size))
                         remainingBuffer -= lenToCopy;
                         len += lenToCopy;
                     }
-			    } while(remainingBuffer > 0 && (dest = getBufferCallback(&destsz)) != NULL);
-			    if(remainingBuffer > 0) {
-                    goto bufferFull;
-			    }
+			    } while(remainingBuffer > 0);
                 RXLOG("Packet %d success, %d", packetno, len);
 				++packetno;
 				retrans = XMODEM_MAXRETRANS + 1;
@@ -371,6 +375,7 @@ int xmodemTransmit(unsigned char const * (*getBufferCallback)(int *size))
 							break;
 						}
 					}
+                    TXLOG("Retrying after 2s");
 				}
                 TXLOG("Error");
                 xmodemOutByte(CAN);

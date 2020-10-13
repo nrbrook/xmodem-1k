@@ -57,9 +57,11 @@
 #define XMODEM_TRANSMIT_BUFFER_SIZE XMODEM_BUFF_SIZE_NORMAL
 #endif
 
+#ifndef LOG_ENABLED
 #define LOG_ENABLED 0
+#endif
 
-#ifdef LOG_ENABLED
+#if defined(LOG_ENABLED) && LOG_ENABLED
 #include <stdio.h>
 #define LOG(...) do { fprintf(stdout, ##__VA_ARGS__); } while (0)
 
@@ -111,7 +113,7 @@ static void flushinput(void)
 		;
 }
 
-int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(void))
+int xmodemReceive(unsigned char * (*getBufferCallback)(int *size))
 {
 	unsigned char xbuff[1030]; /* 1024 for XModem 1k + 3 head chars + 2 crc + nul */
 	unsigned char *p;
@@ -120,6 +122,8 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
 	unsigned char packetno = 1;
 	int i, c, len = 0;
 	int retry, retrans = XMODEM_MAXRETRANS;
+	unsigned char *dest = NULL;
+	int destsz = 0;
 
 	for(;;) {
 		for( retry = 0; retry < 16; ++retry) {
@@ -188,6 +192,7 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
 		return xmodemErrorNoSync;
 
     bufferFull:
+	    RXLOG("Buffer full packetno %d len %d", packetno, len);
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
         xmodemOutByte(CAN);
@@ -207,10 +212,6 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
 			*p++ = c;
 		}
 
-		if(dest == NULL || destsz == 0) {
-		    goto bufferFull;
-		}
-
 		if (xbuff[1] == (unsigned char)(~xbuff[2]) && 
 			(xbuff[1] == packetno || xbuff[1] == (unsigned char)packetno-1) &&
 			check(crc, &xbuff[3], bufsz)) {
@@ -228,7 +229,7 @@ int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(voi
                         remainingBuffer -= lenToCopy;
                         len += lenToCopy;
                     }
-			    } while(remainingBuffer > 0 && bufferFullCallback());
+			    } while(remainingBuffer > 0 && (dest = getBufferCallback(&destsz)) != NULL);
 			    if(remainingBuffer > 0) {
                     goto bufferFull;
 			    }

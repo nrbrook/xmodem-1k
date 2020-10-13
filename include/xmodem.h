@@ -26,15 +26,12 @@ typedef enum {
 
 /**
  * Receive data
- * @param dest The destination address for received data
- * @param destsz The capacity of the buffer at the destination address
- * @param bufferFullCallback A callback which is called when received data has filled the destination buffer. The
- *                           application can process/store the data and return 1 to continue with xmodem receive or 0
- *                           to fail with buffer full error. If 1 is returned, the pointer at `dest` will be overwritten
- *                           with new data.
+ * @param getBufferCallback A callback used to obtain a data buffer from the application for storing received data.
+ *                          Should return a pointer to a buffer (or NULL if a buffer cannot be provided) and set the
+ *                          size pointer to the capacity of the returned buffer.
  * @return If 0 or positive, the length of received data. If negative, a xmodemError
  */
-int xmodemReceive(unsigned char *dest, int destsz, int (*bufferFullCallback)(void));
+int xmodemReceive(unsigned char * (*getBufferCallback)(int *size));
 
 /**
  * Transmit data

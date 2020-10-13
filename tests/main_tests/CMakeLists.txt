@@ -12,3 +12,4 @@ add_executable(runTests
 target_link_libraries(runTests PUBLIC xmodem)
 target_link_libraries(runTests PUBLIC gtest gtest_main)
 target_link_libraries(runTests PUBLIC gmock gmock_main)
+target_compile_definitions(xmodem PUBLIC LOG_ENABLED=1)

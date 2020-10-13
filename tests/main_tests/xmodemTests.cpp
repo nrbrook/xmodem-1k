@@ -110,18 +110,26 @@ void * sendFunc(void* ptr) {
     return NULL;
 }
 
-int bufferFull(void) {
+unsigned char * getRxBuffer(int *size) {
     if(receiveTotalSize < receiveOffset + receiveBufferSize) {
         assert(false);
     }
-    memcpy(receiveOutput + receiveOffset, receiveBuffer, MIN(receiveBufferSize, sizeof(receiveOutput) - receiveOffset));
-    receiveOffset += receiveBufferSize;
-    return receiveTotalSize < receiveOffset + receiveBufferSize ? 0 : 1;
+    if(receiveOffset < 0) {
+        receiveOffset = 0;
+    } else {
+        memcpy(receiveOutput + receiveOffset, receiveBuffer, MIN(receiveBufferSize, sizeof(receiveOutput) - receiveOffset));
+        receiveOffset += receiveBufferSize;
+        if(receiveTotalSize < receiveOffset + receiveBufferSize) {
+            return NULL;
+        }
+    }
+    *size = receiveBufferSize;
+    return receiveBuffer;
 }
 
 void * receiveFunc(void* ptr) {
-    receiveOffset = 0;
-    receiveResult = xmodemReceive(receiveBuffer, receiveBufferSize, bufferFull);
+    receiveOffset = -1;
+    receiveResult = xmodemReceive(getRxBuffer);
     return NULL;
 }
 
@@ -294,8 +302,8 @@ TEST_F(xmodemTests, testSendReceiveSuccessFullBufferFullDataCorruption) {
 }
 
 TEST_F(xmodemTests, testSendReceiveSuccessFullBufferFullDataLossAndCorruption) {
-    lossRate = 1.0 / (3.0 * 128.0);
-    corruptionRate = 1.0 / (3.0 * 128.0);
+    lossRate = 1.0 / (4.0 * 128.0);
+    corruptionRate = 1.0 / (4.0 * 128.0);
     sendDataSize = sizeof(dataToTransfer);
     sendBufferSize = sizeof(dataToTransfer);
     receiveBufferSize = sizeof(receiveBuffer);
